@@ -1,0 +1,5 @@
+`define SCAN_TYPE_GET_MAX	3'd1
+`define SCAN_TYPE_GET_MED	3'd2
+`define SCAN_TYPE_GET_FIRST	3'd3
+`define SCAN_TYPE_GET_VRC	3'd4
+
