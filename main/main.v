@@ -5,6 +5,9 @@ module main(
 	input						sdio_clk,
 	input						hi_clk,
 	
+	input						i_ch_a,
+	input						i_ch_b,
+	
 	input						i_sdio_cs_n,
 	inout		[3:0]			io_sdio_data,
 	
@@ -26,26 +29,76 @@ module main(
 	output		[7:0]			o_pulse_p_1	
 );
 
-	reg			[17:0]			sync_cntr;
-	reg			[0:0]			sync;
+	reg			[1:0]			sync_type;
+	reg			[23:0]			sync_div;
+	reg			[7:0]			wheel_add;
+	reg			[7:0]			wheel_dec;
 	always @ (posedge adc_clk or negedge rst_n)
 		if(~rst_n) begin
-			sync_cntr <= 18'd0;
-			sync <= 1'b0;
+			`ifdef TESTMODE
+			sync_div <= 24'd24999;
+			sync_type <= 2'b01;
+			`else
+			sync_div <= 24'd249999;
+			sync_type <= 2'd01;
+			`endif
+		end
+		else 
+			if(esp_cmd_vld && esp_cmd[27:24] == 4'hD)
+				case(esp_cmd[31:28])
+					4'h1: sync_div <= esp_cmd[23:0];
+					4'h2: {wheel_add, wheel_dec} <= esp_cmd[15:0];
+					4'h3: sync_type <= esp_cmd[1:0];
+				endcase
+
+	reg			[23:0]			sync_cntr;
+	reg			[0:0]			int_sync;
+	always @ (posedge adc_clk or negedge rst_n)
+		if(~rst_n) begin
+			`ifdef TESTMODE
+			sync_cntr <= 24'd24999;
+			`else
+			sync_cntr <= 24'd249999;
+			`endif
+			int_sync <= 1'b0;
 		end
 		else begin
-			sync <= 1'b0;
-			if(~|{sync_cntr})
-				sync <= 1'b1;
-			`ifdef TESTMODE
-			if(sync_cntr < 24999)
-			`else
-			if(sync_cntr < 249999)
-			`endif
+			int_sync <= 1'b0;
+			if(sync_cntr < sync_div)
 				sync_cntr <= sync_cntr + 1'd1;
-			else
-				sync_cntr <= 16'd0;
+			else begin
+				sync_cntr <= 24'd0;
+				int_sync <= 1'b1;
+			end
 		end
+		
+	wire						ext_sync;
+	ext_sync ext_sync_u0(
+		.rst_n(rst_n),
+		.clk(clk),
+		
+		.i_ch_a(i_ch_a),
+		.i_ch_b(i_ch_b),
+		
+		.i_wheel_add(wheel_add),
+		.i_frame_dec(wheel_dec),
+		
+		.o_ext_sync(ext_sync),
+		.o_way_meter(wheel_counter)
+	);
+	
+	wire						sync;
+	assign sync =
+		sync_type == 2'b01 ? int_sync :
+		sync_type == 2'b10 ? ext_sync : 1'b0;
+		
+	reg			[0:0]			half;
+	always @ (posedge clk or negedge rst_n)
+		if(~rst_n)
+			half <= 1'b0;
+		else
+			if(sync)
+				half <= ~half;
 		
 	wire						done_0;
 	wire						done_1;
@@ -103,12 +156,12 @@ module main(
 					MS_STARTED: if(~done_0 && ~done_1) main_state <= main_state + 1'd1;
 					MS_WAIT_DONE: 
 						if(done_0 && done_1) begin
-							if(~sub_channal[3]) begin
+							if(~&{sub_channal[2:0]})
 								main_state <= MS_LOAD_PARAM;
-								sub_channal <= sub_channal + 1'd1;
-							end
 							else
 								main_state <= MS_NONE;
+								
+							sub_channal <= sub_channal + 1'd1;
 						end
 				endcase
 		end
@@ -129,7 +182,7 @@ module main(
 			end
 			
 	wire		[31:0]			wheel_counter;
-	assign wheel_counter = 32'd0;
+	//assign wheel_counter = 32'd0;
 	
 	wire						dac_rdy;
 	dac dac_u0(
@@ -153,6 +206,7 @@ module main(
 		
 		
 	assign o_esp_irq = sub_channal[3];
+	assign o_esp_flag = half;
 					
 	wire		[13:0]			esp_mem_addr;
 	wire		[7:0]			esp_mem_data;
@@ -177,7 +231,7 @@ module main(
 		
 		.i_adc_data(i_adc_data_0),
 		
-		.i_wr_half(1'b0),
+		.i_wr_half(half),
 		
 		.o_param_done(param_done_0),
 		.o_done(done_0),
@@ -216,7 +270,7 @@ module main(
 		
 		.i_adc_data(i_adc_data_1),
 		
-		.i_wr_half(1'b0),
+		.i_wr_half(half),
 		
 		.o_param_done(param_done_1),
 		.o_done(done_1),

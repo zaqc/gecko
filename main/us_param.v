@@ -17,6 +17,11 @@ module us_param(
 	output		[19:0]			o_ainc_one,
 	output		[19:0]			o_ainc_two,
 	output		[15:0]			o_vrc_len,
+	
+	output		[2:0]			o_pulse_count,
+	output		[2:0]			o_pulse_mask,
+	output		[7:0]			o_pulse_pause,
+	output		[7:0]			o_pulse_width,
 
 	input		[31:0]			i_cmd_data,
 	input						i_cmd_vld
@@ -32,7 +37,11 @@ module us_param(
 	reg			[19:0]			param_ainc_one[0:7];
 	reg			[19:0]			param_ainc_two[0:7];
 	reg			[15:0]			param_vrc_len[0:7];
-	
+	reg			[2:0]			param_pulse_count[0:7];
+	reg			[2:0]			param_pulse_mask[0:7];
+	reg			[7:0]			param_pulse_pause[0:7];
+	reg			[7:0]			param_pulse_width[0:7];
+
 	reg			[7:0]			accum;
 	reg			[15:0]			delay;
 	reg			[2:0]			scan_type;
@@ -43,6 +52,10 @@ module us_param(
 	reg			[19:0]			ainc_one;
 	reg			[19:0]			ainc_two;
 	reg			[15:0]			vrc_len;
+	reg			[2:0]			pulse_count;
+	reg			[2:0]			pulse_mask;
+	reg			[7:0]			pulse_pause;
+	reg			[7:0]			pulse_width;
 	
 	assign o_accum = accum;
 	assign o_delay = delay;
@@ -54,6 +67,10 @@ module us_param(
 	assign o_ainc_one = ainc_one;
 	assign o_ainc_two = ainc_two;
 	assign o_vrc_len = vrc_len;
+	assign o_pulse_count = pulse_count;
+	assign o_pulse_mask = pulse_mask;
+	assign o_pulse_pause = pulse_pause;
+	assign o_pulse_width = pulse_width;
 
 	wire		[2:0]			cmd_ch;
 	assign cmd_ch = i_cmd_data[30:28];
@@ -75,20 +92,25 @@ module us_param(
 				param_ainc_one[i] <= {10'd20, 10'd0};
 				param_ainc_two[i] <= {10'd8, 10'd0};
 				param_vrc_len[i] <= 16'd150;
+				param_pulse_count[i] <= i == 7 ? 3'd1 : 3'd4;
+				param_pulse_mask[i] <= i[2:0];
+				param_pulse_pause[i] <= 8'd24;
+				param_pulse_width[i] <= 8'd24;
 			end
 		else 
 			if(i_cmd_vld && cmd_hw_ch == i_hw_ch)
 				case(i_cmd_data[27:24])
 					4'h1: param_scan_len[cmd_ch] <= i_cmd_data[10:0];
+					4'h2: param_ainc_one[cmd_ch] <= i_cmd_data[19:0];
+					4'h3: param_ainc_two[cmd_ch] <= i_cmd_data[19:0];
+					4'h4: param_vrc_len[cmd_ch] <= i_cmd_data[15:0];
 					4'h5: param_accum[cmd_ch] <= i_cmd_data[7:0];
 					4'h6: param_delay[cmd_ch] <= i_cmd_data[15:0];
 					4'h7: param_scan_type[cmd_ch] <= i_cmd_data[2:0];
 					4'hB: param_sel[cmd_ch] <= i_cmd_data[2:0];
 					4'h9: param_start_amp[cmd_ch] <= i_cmd_data[10:0];
 					4'hA: param_amp_porch[cmd_ch] <= i_cmd_data[9:0];
-					4'h2: param_ainc_one[cmd_ch] <= i_cmd_data[19:0];
-					4'h3: param_ainc_two[cmd_ch] <= i_cmd_data[19:0];
-					4'h4: param_vrc_len[cmd_ch] <= i_cmd_data[15:0];
+					4'hC: {param_pulse_count[cmd_ch], param_pulse_mask[cmd_ch], param_pulse_pause[cmd_ch], param_pulse_width[cmd_ch]} <= i_cmd_data[21:0];
 				endcase
 
 	always @ (posedge clk)
@@ -103,6 +125,10 @@ module us_param(
 			ainc_one <= param_ainc_one[i_sub_channel];
 			ainc_two <= param_ainc_two[i_sub_channel];
 			vrc_len <= param_vrc_len[i_sub_channel];
+			pulse_count <= param_pulse_count[i_sub_channel];
+			pulse_mask <= param_pulse_mask[i_sub_channel];
+			pulse_pause <= param_pulse_pause[i_sub_channel];
+			pulse_width <= param_pulse_width[i_sub_channel];
 		end
 
 endmodule

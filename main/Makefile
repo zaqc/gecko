@@ -3,7 +3,7 @@ FLAGS = -Wall -Winfloop -g2005-sv -DTESTMODE=1 -DTARGET_NAME="\""$(TARGET)"\""
 
 TARGET = main
 
-SRC = $(TARGET)_tb.v $(TARGET).v us.v us_param.v pulse.v data_buf.v env.v pack_ascan.v esp_spi.v cmd_fifo.v vrc.v dac.v
+SRC = $(TARGET)_tb.v $(TARGET).v ext_sync.v us.v us_param.v pulse.v data_buf.v env.v pack_ascan.v esp_spi.v cmd_fifo.v vrc.v dac.v
 
 $(TARGET) : $(SRC) Makefile
 	$(CC) $(FLAGS) -o $(TARGET) $(SRC)

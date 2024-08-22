@@ -52,7 +52,7 @@ module pulse(
 					else begin
 						width <= 8'd0;
 						if(pulse_state[2]) begin	// pulse_state == PS_N_LO_STATE
-							pulse_state <= cntr < i_pulse_count ? PS_P_HI_STATE : PS_NONE;
+							pulse_state <= cntr + 1'd1 < i_pulse_count ? PS_P_HI_STATE : PS_NONE;
 							cntr <= cntr + 1'd1;
 						end
 						else
@@ -62,12 +62,12 @@ module pulse(
 				
 	assign o_pulse_p =
 		pulse_state == PS_RST ? 8'h00 :
-		pulse_state == PS_NONE ? 8'hFF : //1'b1 << i_rx_mask :
+		pulse_state == PS_NONE ? 1'b1 << i_rx_mask :
 		pulse_state == PS_P_HI_STATE ? 1'b1 << i_tx_mask : 8'h00;
 		
 	assign o_pulse_n =
 		pulse_state == PS_RST ? 8'h00 :
-		pulse_state == PS_NONE ? 8'hFF : //1'b1 << i_rx_mask :
+		pulse_state == PS_NONE ? 1'b1 << i_rx_mask :
 		pulse_state == PS_N_HI_STATE ? 1'b1 << i_tx_mask : 8'h00;
 		
 endmodule
